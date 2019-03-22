@@ -47,6 +47,7 @@ Finish time: 12:20pm
 
 Actual time needed to complete: 1:05 minutes
 
+
 DAY 2 Number and name of feature: 1, 2, and 3 Data, Weather and Locations
 
 Estimate of time needed to complete: 1 hour
@@ -63,6 +64,7 @@ Start time: 10:35 Finish time: 12:20
 
 Actual time: 1:45 hours
 
+
 DAY 3 Number and name of feature: 1 Database
 
 Estimate of time needed to complete: 1 hour
@@ -72,3 +74,14 @@ Start time: 9:15
 Actual time: 50 min
 
 End time: 10:05am
+
+
+DAY 4 Number and name of feature: 1
+
+Estimate of time needed to complete: 2 hours
+
+Start time: 9:45am
+
+Actual time: 3 hours
+
+End time: 1:45pm
