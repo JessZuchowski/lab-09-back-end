@@ -1,17 +1,18 @@
 'use strict';
-
+//load env variables from .env
 require('dotenv').config();
-
+//app dependencies
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
 const pg = require('pg');
-
+//app setup
 const PORT = process.env.PORT || 3000;
 const app = express();
+//middleware
 app.use(cors());
 
-
+//API ROUTES
 // location route, returns location object
 // Keys: search_query, formatted_query, latitude and longitude
 app.get('/location', getLocation);
@@ -19,8 +20,6 @@ app.get('/location', getLocation);
 // weather route, returns an array of forecast objects
 // Keys: forecast, time
 app.get('/weather', getWeather);
-
-
 
 // TODO: create a getMeetups function
 // [ { link:,
@@ -36,6 +35,7 @@ app.get('/meetups', getMeetups);
 // '*' route for invalid endpoints
 app.use('*', (req, res) => res.send('Sorry, that route does not exist'));
 
+//make sure server is listening for requests
 app.listen(PORT, () => console.log(`Listening on PORT ${PORT}`));
 
 //Create the client connection to the database
@@ -43,14 +43,13 @@ const client = new pg.Client(process.env.HEROKU_POSTGRESQL_TEAL_URL);
 client.connect();
 client.on('error', err => console.error(err));
 
-
 //Error handler for when a 500 error happens
 function handleError(err, res) {
   console.error(err);
   if (res) res.status(500).send('Sorry, something went wrong');
 }
 
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS and Data Models
 
 // takes search request and convert to location object
 //location refactored for SQL
