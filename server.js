@@ -99,28 +99,99 @@ function getLocation(req, res) {
     })
 }
 
-// function getLocation(req, res) {
-//   const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?key=${process.env.GOOGLE_MAPS_API_KEY}&address=${req.query.data}`;
-//   return superagent.get(mapsURL)
-//     .then(result => {
-//       res.send(new Location(result.body.results[0], req.query.data));
-//     })
-//     .catch(error => handleError(error));
-// }
+//get the sql data for the requested source
+function getData (sqlInfo) {
+  let sql = `SELECT * FROM ${sqlInfo.endpoint}s WHERE location_id = $1;`
+  let values = [sqlInfo.id];
 
-// returns array of daily forecasts
-function getWeather(req, res) {
-  const dark_sky_url = `https://api.darksky.net/forecast/${process.env.DARK_SKY_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
+  //console.log('getting data', sqlInfo.endpoint);
+  try {return client.query(sql, values);}
+  catch (error) {handleError(error)}
 
-  return superagent.get(dark_sky_url)
-    .then( weatherResult => {
-      const weatherSummaries = weatherResult.body.daily.data.map((day) => {
-        return new Forecast(day);
-      });
-      res.send(weatherSummaries);
+}
+//milliseconds
+const timeouts = {
+  //15 seconds
+  weather: 15 * 1000,
+  //24 hours
+  yelp: 24 * 1000 * 60 * 60,
+  //30 days
+  movie: 30 * 1000 * 60 * 60 * 24,
+  //6 hours
+  meetup: 6 * 1000 * 60 * 60,
+  //7 days
+  trail: 7 * 1000 * 60 * 60 * 24,
+};
+
+//check to see if data is still valid for time period
+function checkTimeouts (sqlInfo, sqlData) {
+  if (sqlData.rowCount >0) {
+    let ageOfResults = (Date.now() - sqlData.rows[0].created_at);
+    //console.log(sqlInfo.endpoint, 'age: ', ageOfResults);
+    //console.log(sqlInfo.endpoint, 'timeout: ', timeouts[sqlInfo.endpoint]);
+    if (ageOfResults >timeouts[sqlInfo.endpoint]) {
+      let sql = `DELETE FROM ${sqlInfo.endpoint}s WHERE location_id=$1;`;
+      let values = [sqlInfo.id];
+      client.query(sql, values)
+        .then(() => {
+          return null;
+        })
+        .catch(error => handleError(error));
+    } else {return sqlData}
+  }
+}
+
+//retrieve weather based on location
+function getWeather (req, res) {
+  //create an object to hold sql query info
+  let sqlInfo = {
+    id: req.query.data.id,
+    endpoint: 'weather',
+  }
+  getData(sqlInfo)
+    .then(data => checkTimeouts(sqlInfo, data))
+    .then(result => {
+      if (result) {Response.send(result.rows)}
+      else {
+        const weatherURL = `https://api.darksky.net/forecast/${process.env.DARK_SKY_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
+
+        superagent.get(weatherURL)
+          .then(weatherResults => {
+            if (!weatherResults.body.daily.data.length) {
+              throw 'NO DATA' ;}
+            else {
+              //process data through constructor to be returned to client
+              const weatherSummaries = weatherResults.body.daily.data.map(day => {
+                let summary = new Weather(day);
+                summary.id = sqlInfo.id;
+                //insert into sql database
+                let newSql = `INSERT INTO weathers (forecast, time, created_at, location_id) VALUES($1, $2, $3, $4);`;
+                let newValues = Object.values(summary);
+                client.query(newSql, newValues);
+                return summary;
+              });
+              res.send(weatherSummaries);
+            }
+          });
+      }
     })
     .catch(error => handleError(error));
 }
+
+
+// returns array of daily forecasts
+// function getWeather(req, res) {
+//   const dark_sky_url = `https://api.darksky.net/forecast/${process.env.DARK_SKY_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
+
+//   return superagent.get(dark_sky_url)
+//     .then( weatherResult => {
+//       const weatherSummaries = weatherResult.body.daily.data.map((day) => {
+//         return new Forecast(day);
+//       });
+//       res.send(weatherSummaries);
+//     })
+//     .catch(error => handleError(error));
+// }
 
 // returns array of 20 meetup objects
 function getMeetups(req, res) {
@@ -145,9 +216,10 @@ function Location(query, data) {
 }
 
 // Forecast object constructor
-function Forecast(day) {
+function Weather(day) {
   this.forecast = day.summary;
-  this.time = new Date(day.time*1000).toString().slice(0,15);
+  this.time = new Date(day.time * 1000).toString().slice(0,15);
+  this.created_at = Date.now();
 }
 
 // Meetup event object constructor
