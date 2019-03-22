@@ -39,7 +39,7 @@ app.use('*', (req, res) => res.send('Sorry, that route does not exist'));
 app.listen(PORT, () => console.log(`Listening on PORT ${PORT}`));
 
 //Create the client connection to the database
-const client = new pg.Client(process.env.HEROKU_POSTGRESQL_TEAL_URL);
+const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 client.on('error', err => console.error(err));
 
@@ -54,6 +54,7 @@ function handleError(err, res) {
 // takes search request and convert to location object
 //location refactored for SQL
 function getLocation(req, res) {
+  console.log('retrieving location');
   let query = req.query.data;
 
   //defining search query
@@ -70,7 +71,7 @@ function getLocation(req, res) {
         res.send(result.rows[0]);
       } else {
         //otherwise go get data from APi
-        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?key=${process.env.GOOGLE_MAPS_API_KEY}&address=${req.query.data}`;
+        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}key=${process.env.GOOGLE_MAPS_API_KEY}&`;
         superagent.get(mapsURL)
           .then(data => {
             console.log('LOCATION FROM API');
@@ -82,6 +83,7 @@ function getLocation(req, res) {
               //creata a query string to add the location data to SQL
               let newSql = `INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING id;`;
               let newValues = Object.values(location);
+              console.log(newValues);
               //insert location data into the database and return the unique id for the new record
               client.query(newSql, newValues)
                 .then(result => {

@@ -11,7 +11,7 @@ Overview This site is being built so that we can get hands on experience with ba
 
 Getting Started Location-route step 1: Clone base code from our Repo. step 2: In terminal window 'npm install dotenv' and create '.env' file containing PORT='port number you use'. step 3: Run nodemon and test routes (location) and outputs. step 4: deploy if desired.
 
-Architecture Langauges currently in use include, JavaScript, node, JSON, npm, SQL. NPM packages in use: express, cors, dotenv, superagent, pg. API keys from Google, Dark Sky, Movie Database, Yelp, MeetUp, and Hiking.
+Architecture Langauges currently in use include, JavaScript, node, JSON, npm, SQL. NPM packages in use: express, cors, dotenv, superagent, pg. API keys from Google, Dark Sky, The Movie Database, Yelp, MeetUp, and Hiking Project.
 
 Change Log 2019-03-19 12:20 - Application now has a fully-functional express server, with a GET route for the /location resource. 2019-03-20 12:20 - Application has a /weather GET route and a /meetups GET route, and an error handler.
 
