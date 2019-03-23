@@ -71,7 +71,7 @@ function getLocation(req, res) {
         res.send(result.rows[0]);
       } else {
         //otherwise go get data from APi
-        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}key=${process.env.GOOGLE_MAPS_API_KEY}&`;
+        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
         superagent.get(mapsURL)
           .then(data => {
             console.log('LOCATION FROM API');
@@ -178,34 +178,58 @@ function getWeather (req, res) {
     .catch(error => handleError(error));
 }
 
+//meetup function refactored
 
-// returns array of daily forecasts
-// function getWeather(req, res) {
-//   const dark_sky_url = `https://api.darksky.net/forecast/${process.env.DARK_SKY_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
+//retrieve meetup based on location
+function getMeetups (req, res) {
+  //create an object to hold sql query info
+  let sqlInfo = {
+    id: req.query.data.id,
+    endpoint: 'meetup',
+  }
+  getData(sqlInfo)
+    .then(data => checkTimeouts(sqlInfo, data))
+    .then(result => {
+      if (result) {res.send(result.rows)}
+      else {
+        const meetupURL = `https://api.meetup.com/find/upcoming_events?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&sign=true&key=${process.env.MEETUP_API_KEY}&page=20`;
 
-//   return superagent.get(dark_sky_url)
-//     .then( weatherResult => {
-//       const weatherSummaries = weatherResult.body.daily.data.map((day) => {
-//         return new Forecast(day);
-//       });
-//       res.send(weatherSummaries);
-//     })
-//     .catch(error => handleError(error));
-// }
-
-// returns array of 20 meetup objects
-function getMeetups(req, res) {
-  const meetupUrl = `https://api.meetup.com/find/upcoming_events?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&sign=true&key=${process.env.MEETUP_API_KEY}&page=20`;
-
-  return superagent.get(meetupUrl)
-    .then( meetupResults => {
-      const meetupList = meetupResults.body.events.map((event) => {
-        return new MeetupEvent(event);
-      });
-      res.send(meetupList);
+        superagent.get(meetupURL)
+          .then(meetupResults => {
+            if (!meetupResults.body.events.data.length) {
+              throw 'NO DATA' ;}
+            else {
+              //process data through constructor to be returned to client
+              const meetupSummaries = meetupResults.body.events.data.map(event => {
+                let summary = new MeetupEvent(event);
+                summary.id = sqlInfo.id;
+                //insert into sql database
+                let newSql = `INSERT INTO meetups (link, name, creation_date, host, location_id) VALUES($1, $2, $3, $4, $5);`;
+                let newValues = Object.values(summary);
+                client.query(newSql, newValues);
+                return summary;
+              });
+              res.send(meetupSummaries);
+            }
+          });
+      }
     })
     .catch(error => handleError(error));
 }
+
+// returns array of 20 meetup objects
+// function getMeetups(req, res) {
+//   const meetupUrl = `https://api.meetup.com/find/upcoming_events?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&sign=true&key=${process.env.MEETUP_API_KEY}&page=20`;
+
+//   return superagent.get(meetupUrl)
+//     .then( meetupResults => {
+//       const meetupList = meetupResults.body.events.map((event) => {
+//         return new MeetupEvent(event);
+//       });
+//       res.send(meetupList);
+//     })
+//     .catch(error => handleError(error));
+// }
 
 // Location object constructor
 function Location(query, data) {

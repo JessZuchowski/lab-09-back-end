@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS weathers;
+DROP TABLE IF EXISTS meetups;
 DROP TABLE IF EXISTS locations;
+
 
 CREATE TABLE locations (
   id SERIAL PRIMARY KEY,
@@ -14,6 +16,16 @@ CREATE TABLE weathers (
   forecast VARCHAR(255),
   time VARCHAR(255),
   created_at BIGINT,
+  location_id INTEGER NOT NULL,
+  FOREIGN KEY (location_id) REFERENCES locations (id)
+);
+
+CREATE TABLE meetups (
+  id SERIAL PRIMARY KEY,
+  link VARCHAR(255),
+  name VARCHAR(255),
+  creation_date BIGINT,
+  host VARCHAR(255),
   location_id INTEGER NOT NULL,
   FOREIGN KEY (location_id) REFERENCES locations (id)
 );

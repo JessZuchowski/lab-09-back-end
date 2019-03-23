@@ -19,6 +19,7 @@
   "homepage": "https://github.com/JessZuchowski/lab-09-back-end#readme",
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^7.0.0",
     "express": "^4.16.4",
     "pg": "^7.9.0",
     "superagent": "^4.1.0"
