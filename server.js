@@ -71,7 +71,7 @@ function getLocation(req, res) {
         res.send(result.rows[0]);
       } else {
         //otherwise go get data from APi
-        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}key=${process.env.GOOGLE_MAPS_API_KEY}&`;
+        const mapsURL = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
         superagent.get(mapsURL)
           .then(data => {
             console.log('LOCATION FROM API');
@@ -185,7 +185,7 @@ function getMeetups (req, res) {
   //create an object to hold sql query info
   let sqlInfo = {
     id: req.query.data.id,
-    endpoint: 'meeetups',
+    endpoint: 'meetup',
   }
   getData(sqlInfo)
     .then(data => checkTimeouts(sqlInfo, data))
@@ -204,7 +204,7 @@ function getMeetups (req, res) {
                 let summary = new MeetupEvent(event);
                 summary.id = sqlInfo.id;
                 //insert into sql database
-                let newSql = `INSERT INTO meetups (link, name, creation_date, host) VALUES($1, $2, $3, $4);`;
+                let newSql = `INSERT INTO meetups (link, name, creation_date, host, location_id) VALUES($1, $2, $3, $4, $5);`;
                 let newValues = Object.values(summary);
                 client.query(newSql, newValues);
                 return summary;

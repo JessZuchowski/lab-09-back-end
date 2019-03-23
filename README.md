@@ -85,3 +85,10 @@ Start time: 9:45am
 Actual time: 3 hours
 
 End time: 1:45pm
+
+
+
+
+_______________________________________________________________________
+*IMAGE API CALL FOR MOVIE DATABASE*
+api.themoviedb.org/3/configuration?api_key=[your movie api key]
