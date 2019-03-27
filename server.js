@@ -12,42 +12,30 @@ const app = express();
 //middleware
 app.use(cors());
 
-//API ROUTES
-// location route, returns location object
-// Keys: search_query, formatted_query, latitude and longitude
-app.get('/location', getLocation);
-
-// weather route, returns an array of forecast objects
-// Keys: forecast, time
-app.get('/weather', getWeather);
-
-// TODO: create a getMeetups function
-// [ { link:,
-// name:,
-// creation_date:,
-// host:}, ]
-// app.get('/meetups', getMeetups);
-app.get('/meetups', getMeetups);
-
-// TODO: create a getYelp function
-// app.get('/yelp', getYelp);
-
-// '*' route for invalid endpoints
-app.use('*', (req, res) => res.send('Sorry, that route does not exist'));
-
-//make sure server is listening for requests
-app.listen(PORT, () => console.log(`Listening on PORT ${PORT}`));
-
 //Create the client connection to the database
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 client.on('error', err => console.error(err));
+
+//API ROUTES
+app.get('/location', getLocation);
+app.get('/weather', getWeather);
+app.get('/meetups', getMeetups);
+app.get('/yelp', getYelp);
+//app.get('/movies', getMovies);
+//app.get('/trails'), getTrails);
+
+//make sure server is listening for requests
+app.listen(PORT, () => console.log(`Listening on PORT ${PORT}`));
 
 //Error handler for when a 500 error happens
 function handleError(err, res) {
   console.error(err);
   if (res) res.status(500).send('Sorry, something went wrong');
 }
+
+// '*' route for invalid endpoints
+app.use('*', (req, res) => res.send('Sorry, that route does not exist'));
 
 // HELPER FUNCTIONS and Data Models
 
@@ -56,11 +44,9 @@ function handleError(err, res) {
 function getLocation(req, res) {
   console.log('retrieving location');
   let query = req.query.data;
-
   //defining search query
   let sql = `SELECT * FROM locations WHERE search_query=$1;`
   let values = [query];
-
 
   //making query of database
   client.query(sql, values)
@@ -105,10 +91,12 @@ function getData (sqlInfo) {
   let values = [sqlInfo.id];
 
   //console.log('getting data', sqlInfo.endpoint);
+  //return data
   try {return client.query(sql, values);}
   catch (error) {handleError(error)}
 
 }
+//Establish length of time to keep data for each resource
 //milliseconds
 const timeouts = {
   //15 seconds
@@ -125,17 +113,16 @@ const timeouts = {
 
 //check to see if data is still valid for time period
 function checkTimeouts (sqlInfo, sqlData) {
-  if (sqlData.rowCount >0) {
+  if (sqlData.rowCount > 0) {
     let ageOfResults = (Date.now() - sqlData.rows[0].created_at);
     //console.log(sqlInfo.endpoint, 'age: ', ageOfResults);
     //console.log(sqlInfo.endpoint, 'timeout: ', timeouts[sqlInfo.endpoint]);
-    if (ageOfResults >timeouts[sqlInfo.endpoint]) {
+    //Compare age of results with timeout value, delete data if it's old
+    if (ageOfResults > timeouts[sqlInfo.endpoint]) {
       let sql = `DELETE FROM ${sqlInfo.endpoint}s WHERE location_id=$1;`;
       let values = [sqlInfo.id];
       client.query(sql, values)
-        .then(() => {
-          return null;
-        })
+        .then(() => { return null; })
         .catch(error => handleError(error));
     } else {return sqlData}
   }
@@ -148,17 +135,18 @@ function getWeather (req, res) {
     id: req.query.data.id,
     endpoint: 'weather',
   }
+  //get data and process
   getData(sqlInfo)
     .then(data => checkTimeouts(sqlInfo, data))
     .then(result => {
-      if (result) {Response.send(result.rows)}
+      if (result) {res.send(result.rows)}
       else {
         const weatherURL = `https://api.darksky.net/forecast/${process.env.DARK_SKY_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
 
         superagent.get(weatherURL)
           .then(weatherResults => {
             if (!weatherResults.body.daily.data.length) {
-              throw 'NO DATA' ;}
+              throw 'NO DATA'; }
             else {
               //process data through constructor to be returned to client
               const weatherSummaries = weatherResults.body.daily.data.map(day => {
@@ -177,8 +165,6 @@ function getWeather (req, res) {
     })
     .catch(error => handleError(error));
 }
-
-//meetup function refactored
 
 //retrieve meetup based on location
 function getMeetups (req, res) {
@@ -204,7 +190,7 @@ function getMeetups (req, res) {
                 let summary = new MeetupEvent(event);
                 summary.id = sqlInfo.id;
                 //insert into sql database
-                let newSql = `INSERT INTO meetups (link, name, creation_date, host, location_id) VALUES($1, $2, $3, $4, $5);`;
+                let newSql = `INSERT INTO meetups (link, name, creation_date, host, created_at, location_id) VALUES($1, $2, $3, $4, $5, $6);`;
                 let newValues = Object.values(summary);
                 client.query(newSql, newValues);
                 return summary;
@@ -217,20 +203,48 @@ function getMeetups (req, res) {
     .catch(error => handleError(error));
 }
 
-// returns array of 20 meetup objects
-// function getMeetups(req, res) {
-//   const meetupUrl = `https://api.meetup.com/find/upcoming_events?lat=${req.query.data.latitude}&lon=${req.query.data.longitude}&sign=true&key=${process.env.MEETUP_API_KEY}&page=20`;
 
-//   return superagent.get(meetupUrl)
-//     .then( meetupResults => {
-//       const meetupList = meetupResults.body.events.map((event) => {
-//         return new MeetupEvent(event);
-//       });
-//       res.send(meetupList);
-//     })
-//     .catch(error => handleError(error));
-// }
+//Yelp function
+function getYelp(req, res) {
+  //create object to hold SQL query info
+  let sqlInfo = {
+    id: requestAnimationFrame.query.data.id,
+    endpoint: 'yelp',
+  }
+  //get data and process
+  getData(sqlInfo)
+    .then(data => checkTimeouts(sqlInfo, data))
+    .then(result => {
+      if (result) { Response.send(result.rows) }
+      else {
+        const yelpURL = `https:api.yelp.com/v3/businesses/search?locations=${req.query.data.search_query}`;
 
+        superagent.get(yelpURL)
+          .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+          .then(yelpResults => {
+            if (!yelpResults.body.businesses.length) { throw 'NO DATA'; }
+            else {
+              const yelpReviews = yelpResults.body.businesses.map(business => {
+                let review = new Yelp(business);
+                review.id = sqlInfo.id;
+
+                let sql = `INSERT INTO yelps (name, image_url, price, rating, url, created_at, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7);`;
+
+                let values = Object.values(review);
+                client.query(sql, values);
+
+                return review;
+              });
+              Response.send(yelpReviews);
+            }
+          });
+      }
+    })
+    .catch(error => handleError(error));
+}
+
+
+//Data Models
 // Location object constructor
 function Location(query, data) {
   this.search_query = query;
@@ -246,10 +260,21 @@ function Weather(day) {
   this.created_at = Date.now();
 }
 
+// Yelp object constructor
+function Yelp(business) {
+  this.name = business.name;
+  this.image_url = business.image_url;
+  this.price = business.price;
+  this.rating = business.rating;
+  this.url = business.url;
+  this.created_at = Date.now();
+}
+
 // Meetup event object constructor
 function MeetupEvent(event) {
   this.link = event.link;
   this.name = event.name;
   this.creation_date = new Date(event.time).toString().slice(0, 15);
   this.host = event.group.name;
+  this.created_at = Date.now();
 }

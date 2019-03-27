@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS weathers;
 DROP TABLE IF EXISTS meetups;
+DROP TABLE IF EXISTS yelps;
 DROP TABLE IF EXISTS locations;
 
 
@@ -26,6 +27,19 @@ CREATE TABLE meetups (
   name VARCHAR(255),
   creation_date BIGINT,
   host VARCHAR(255),
+  created_at BIGINT,
+  location_id INTEGER NOT NULL,
+  FOREIGN KEY (location_id) REFERENCES locations (id)
+);
+
+CREATE TABLE yelps (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  image_url VARCHAR(255),
+  price NUMERIC(255),
+  rating NUMERIC(255),
+  url VARCHAR(255),
+  created_at BIGINT,
   location_id INTEGER NOT NULL,
   FOREIGN KEY (location_id) REFERENCES locations (id)
 );
