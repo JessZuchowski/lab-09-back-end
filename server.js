@@ -7,7 +7,7 @@ const cors = require('cors');
 const superagent = require('superagent');
 const pg = require('pg');
 //app setup
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const app = express();
 //middleware
 app.use(cors());
@@ -33,6 +33,32 @@ function handleError(err, res) {
   console.error(err);
   if (res) res.status(500).send('Sorry, something went wrong');
 }
+
+//get the sql data for the requested source
+function getData (sqlInfo) {
+  let sql = `SELECT * FROM ${sqlInfo.endpoint}s WHERE location_id = $1;`
+  let values = [sqlInfo.id];
+
+  //console.log('getting data', sqlInfo.endpoint);
+  //return data
+  try {return client.query(sql, values);}
+  catch (error) {handleError(error)}
+
+}
+//Establish length of time to keep data for each resource
+//milliseconds
+const timeouts = {
+  //15 seconds
+  weather: 15 * 1000,
+  //24 hours
+  yelp: 24 * 1000 * 60 * 60,
+  //30 days
+  movie: 30 * 1000 * 60 * 60 * 24,
+  //6 hours
+  meetup: 6 * 1000 * 60 * 60,
+  //7 days
+  trail: 7 * 1000 * 60 * 60 * 24,
+};
 
 // '*' route for invalid endpoints
 app.use('*', (req, res) => res.send('Sorry, that route does not exist'));
@@ -85,32 +111,6 @@ function getLocation(req, res) {
     })
 }
 
-//get the sql data for the requested source
-function getData (sqlInfo) {
-  let sql = `SELECT * FROM ${sqlInfo.endpoint}s WHERE location_id = $1;`
-  let values = [sqlInfo.id];
-
-  //console.log('getting data', sqlInfo.endpoint);
-  //return data
-  try {return client.query(sql, values);}
-  catch (error) {handleError(error)}
-
-}
-//Establish length of time to keep data for each resource
-//milliseconds
-const timeouts = {
-  //15 seconds
-  weather: 15 * 1000,
-  //24 hours
-  yelp: 24 * 1000 * 60 * 60,
-  //30 days
-  movie: 30 * 1000 * 60 * 60 * 24,
-  //6 hours
-  meetup: 6 * 1000 * 60 * 60,
-  //7 days
-  trail: 7 * 1000 * 60 * 60 * 24,
-};
-
 //check to see if data is still valid for time period
 function checkTimeouts (sqlInfo, sqlData) {
   if (sqlData.rowCount > 0) {
@@ -124,7 +124,9 @@ function checkTimeouts (sqlInfo, sqlData) {
       client.query(sql, values)
         .then(() => { return null; })
         .catch(error => handleError(error));
-    } else {return sqlData}
+    } else {
+      return sqlData;
+    }
   }
 }
 
@@ -208,21 +210,21 @@ function getMeetups (req, res) {
 function getYelp(req, res) {
   //create object to hold SQL query info
   let sqlInfo = {
-    id: requestAnimationFrame.query.data.id,
+    id: req.query.data.id,
     endpoint: 'yelp',
   }
   //get data and process
   getData(sqlInfo)
     .then(data => checkTimeouts(sqlInfo, data))
     .then(result => {
-      if (result) { Response.send(result.rows) }
+      if (result) { res.send(result.rows) }
       else {
-        const yelpURL = `https:api.yelp.com/v3/businesses/search?locations=${req.query.data.search_query}`;
+        const yelpURL = `https:api.yelp.com/v3/businesses/search?latitude=${req.query.data.latitude}&longitude=${req.query.data.longitude}`;
 
         superagent.get(yelpURL)
-          .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+          .set({'Authorization': `Bearer ${process.env.YELP_API_KEY}`})
           .then(yelpResults => {
-            if (!yelpResults.body.businesses.length) { throw 'NO DATA'; }
+            if (!yelpResults.body.businesses.length) { throw 'NO DATA FROM API'; }
             else {
               const yelpReviews = yelpResults.body.businesses.map(business => {
                 let review = new Yelp(business);
@@ -235,9 +237,11 @@ function getYelp(req, res) {
 
                 return review;
               });
-              Response.send(yelpReviews);
+              res.send(yelpReviews);
             }
-          });
+          })
+          .catch(error => handleError(error))
+
       }
     })
     .catch(error => handleError(error));
